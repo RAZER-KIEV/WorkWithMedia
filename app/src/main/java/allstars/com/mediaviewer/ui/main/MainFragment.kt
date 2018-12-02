@@ -2,6 +2,7 @@ package allstars.com.mediaviewer.ui.main
 
 import allstars.com.mediaviewer.R
 import allstars.com.mediaviewer.databinding.MainFragmentBinding
+import allstars.com.mediaviewer.model.ANIMATIONS_DURATION
 import allstars.com.mediaviewer.model.EXTRA_COUNTER
 import allstars.com.mediaviewer.model.MENU_SETTINGS_ID
 import allstars.com.mediaviewer.model.VIEW_TIME_SEC
@@ -20,10 +21,7 @@ import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.support.v4.content.ContextCompat
 import android.view.*
-import android.view.animation.AccelerateInterpolator
-import android.view.animation.AlphaAnimation
-import android.view.animation.Animation
-import android.view.animation.DecelerateInterpolator
+import android.view.animation.*
 import android.widget.ImageView
 import android.widget.Toast
 import com.bumptech.glide.Glide
@@ -109,17 +107,32 @@ class MainFragment : Fragment() {
     }
 
     private fun setUpViewSwitcher() {
+        val fadeInSet = AnimationSet(true)
         val fadeIn = AlphaAnimation(0f, 1f)
         fadeIn.interpolator = DecelerateInterpolator()
-        fadeIn.duration = 1000
+        fadeIn.duration = ANIMATIONS_DURATION
+        val zoomIn = ScaleAnimation(0f, 1f, 0f, 1f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
+        zoomIn.fillAfter = true
+        zoomIn.duration = ANIMATIONS_DURATION
+
+        val fadeOutSet = AnimationSet(true)
 
         val fadeOut = AlphaAnimation(1f, 0f)
         fadeOut.interpolator = AccelerateInterpolator()
-        fadeOut.duration = 1000
+        fadeOut.duration = ANIMATIONS_DURATION
 
-        binding.viewSwitcher.inAnimation = fadeIn
-        binding.viewSwitcher.outAnimation = fadeOut
+        val zoomOut = ScaleAnimation(1f, 0f, 1f, 0f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
+        zoomOut.fillAfter = true
+        zoomOut.duration = ANIMATIONS_DURATION
 
+        fadeInSet.addAnimation(fadeIn)
+        fadeInSet.addAnimation(zoomIn)
+        fadeOutSet.addAnimation(fadeOut)
+        fadeOutSet.addAnimation(zoomOut)
+        fadeInSet.startOffset = ANIMATIONS_DURATION
+
+        binding.viewSwitcher.inAnimation = fadeInSet
+        binding.viewSwitcher.outAnimation = fadeOutSet
     }
 
     private fun playContent(content: Content) {
