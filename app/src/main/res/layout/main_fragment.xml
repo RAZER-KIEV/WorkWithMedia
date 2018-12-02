@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <android.support.constraint.ConstraintLayout
+            android:id="@+id/main"
+            android:background="@android:color/black"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <ViewSwitcher
+                android:id="@+id/viewSwitcher"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentTop="true"
+                android:inAnimation="@android:anim/slide_in_left">
+
+
+            <ImageView
+                    app:scalableType="centerCrop"
+                    android:id="@+id/imageView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"/>
+
+            <ImageView
+                    app:scalableType="centerCrop"
+                    android:id="@+id/imageView2"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"/>
+        </ViewSwitcher>
+
+        <com.yqritc.scalablevideoview.ScalableVideoView
+                android:id="@+id/videoView"
+                android:visibility="gone"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:scalableType="centerCrop"/>
+
+        <allstars.com.mediaviewer.ui.custom.ClockView
+                android:layout_marginBottom="16dp"
+                android:layout_marginEnd="16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                android:id="@+id/analog_clock"
+                android:layout_width="128dp"
+                android:layout_height="128dp"/>
+
+    </android.support.constraint.ConstraintLayout>
+</layout>
