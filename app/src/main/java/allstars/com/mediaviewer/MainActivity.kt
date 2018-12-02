@@ -1,8 +1,8 @@
 package allstars.com.mediaviewer
 
-import android.support.v7.app.AppCompatActivity
-import android.os.Bundle
 import allstars.com.mediaviewer.ui.main.MainFragment
+import android.os.Bundle
+import android.support.v7.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
@@ -15,5 +15,4 @@ class MainActivity : AppCompatActivity() {
                 .commitNow()
         }
     }
-
 }

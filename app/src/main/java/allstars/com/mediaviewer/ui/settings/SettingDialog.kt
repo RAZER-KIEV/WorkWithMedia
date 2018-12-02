@@ -45,23 +45,19 @@ class SettingDialog : DialogFragment() {
         val title = arguments?.getString(EXTRA_TITLE)
         val hint = arguments?.getString(EXTRA_HINT)
         val text: String? = arguments?.getString(EXTRA_TEXT)
-        val isMiltiline = arguments?.getBoolean(EXTRA_MULTILINE) ?: false
+        val isMultiline = arguments?.getBoolean(EXTRA_MULTILINE) ?: false
 
-        // StackOverflowError
-        // val view = layoutInflater.inflate(R.layout.dialog_edit_text, null)
         val view = activity!!.layoutInflater.inflate(R.layout.dialog_edit_text, null)
 
         editText = view.findViewById(R.id.editText)
         editText.hint = hint
 
-        if (isMiltiline) {
+        if (isMultiline) {
             editText.minLines = 3
             editText.inputType = InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or
                     InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         }
         if (text != null) {
-            // editText.setText(text)
-            // editText.setSelection(text.length)
             editText.append(text)
         }
 

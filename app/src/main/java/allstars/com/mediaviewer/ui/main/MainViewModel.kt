@@ -8,10 +8,9 @@ import android.arch.lifecycle.AndroidViewModel
 import android.arch.lifecycle.MutableLiveData
 import io.reactivex.rxkotlin.subscribeBy
 
-class MainViewModel(var app: Application) : AndroidViewModel(app) {
+class MainViewModel(app: Application) : AndroidViewModel(app) {
+
     private var repository: Repository = Repository(app)
-    var toastMessage = MutableLiveData<String>()
-    //cache
 
     var contentList = MutableLiveData<MutableList<Content>>()
         @SuppressLint("CheckResult")
@@ -20,7 +19,6 @@ class MainViewModel(var app: Application) : AndroidViewModel(app) {
                 repository.getLocalContent().subscribeBy(onSuccess = {
                     field.value = it
                 }, onError = {
-                    toastMessage.value = it.toString()
                     it.printStackTrace()
                 })
             }
@@ -35,27 +33,8 @@ class MainViewModel(var app: Application) : AndroidViewModel(app) {
             return field
         }
 
-    public fun saveSettingsToShPref(value: Int) {
+    fun saveSettingsToShPref(value: Int) {
         repository.saveSettingsToShPref(value = value)
         viewTime.value = value
     }
-
-//    @SuppressLint("CheckResult")
-//    private fun getLocalContent() {
-//        repository.getLocalContent().subscribeBy(onSuccess = {
-//            contentList.value = it
-//        }, onError = {
-//            toastMessage.value = it.toString()
-//            it.printStackTrace()
-//        })
-//    }
-
-//    fun getBills(): Single<ArrayList<BaseBill>> {
-//        return if (cachedBills.size == 0) {
-//            val response = RetroServiceStub().getBills()
-//            response.subscribeBy(onSuccess = { cachedBills = it }, onError = {})
-//            response
-//        } else
-//            Single.just(cachedBills)
-//    }
 }
