@@ -84,14 +84,16 @@ class ClockView : View {
     }
 
     private fun drawNumeral(canvas: Canvas) {
-        paint?.textSize = fontSize.toFloat()
-        for (number in numbers) {
-            val tmp = number.toString()
-            paint!!.getTextBounds(tmp, 0, tmp.length, rect)
-            val angle = Math.PI / 6 * (number - 3)
-            val x = (mWidth / 2 + Math.cos(angle) * radius - rect.width() / 2).toFloat()
-            val y = (mHeight / 2 + Math.sin(angle) * radius + rect.height() / 2).toFloat()
-            canvas.drawText(tmp, x, y, paint)
+        paint?.let {
+            it.textSize = fontSize.toFloat()
+            for (number in numbers) {
+                val tmp = number.toString()
+                it.getTextBounds(tmp, 0, tmp.length, rect)
+                val angle = Math.PI / 6 * (number - 3)
+                val x = (mWidth / 2 + Math.cos(angle) * radius - rect.width() / 2).toFloat()
+                val y = (mHeight / 2 + Math.sin(angle) * radius + rect.height() / 2).toFloat()
+                canvas.drawText(tmp, x, y, it)
+            }
         }
     }
 

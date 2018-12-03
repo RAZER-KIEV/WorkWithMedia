@@ -5,7 +5,7 @@ import java.util.*
 
 data class Content(var path: String, var type: ContentType) : Comparable<Content> {
 
-    var lastModDate: Date
+    private var lastModDate: Date
 
     override fun compareTo(other: Content): Int {
         return other.lastModDate.compareTo(lastModDate)

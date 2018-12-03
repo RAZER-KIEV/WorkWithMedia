@@ -7,6 +7,7 @@ import android.app.Application
 import android.arch.lifecycle.AndroidViewModel
 import android.arch.lifecycle.MutableLiveData
 import io.reactivex.rxkotlin.subscribeBy
+import java.util.*
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -36,5 +37,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun saveSettingsToShPref(value: Int) {
         repository.saveSettingsToShPref(value = value)
         viewTime.value = value
+    }
+
+    fun getPictureFromInternet(): UUID {
+        return repository.getPictureFromInternet()
     }
 }

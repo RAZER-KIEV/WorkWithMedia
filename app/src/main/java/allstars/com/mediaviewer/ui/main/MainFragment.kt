@@ -2,10 +2,7 @@ package allstars.com.mediaviewer.ui.main
 
 import allstars.com.mediaviewer.R
 import allstars.com.mediaviewer.databinding.MainFragmentBinding
-import allstars.com.mediaviewer.model.ANIMATIONS_DURATION
-import allstars.com.mediaviewer.model.EXTRA_COUNTER
-import allstars.com.mediaviewer.model.MENU_SETTINGS_ID
-import allstars.com.mediaviewer.model.VIEW_TIME_SEC
+import allstars.com.mediaviewer.model.*
 import allstars.com.mediaviewer.model.dto.Content
 import allstars.com.mediaviewer.model.dto.ContentType
 import allstars.com.mediaviewer.ui.settings.SettingDialog
@@ -13,8 +10,10 @@ import allstars.com.mediaviewer.util.AnimatorListenerAdapter
 import android.Manifest
 import android.arch.lifecycle.Observer
 import android.arch.lifecycle.ViewModelProviders
+import android.content.Context
 import android.content.pm.PackageManager
 import android.databinding.DataBindingUtil
+import android.net.ConnectivityManager
 import android.os.Bundle
 import android.os.Handler
 import android.support.v4.app.ActivityCompat
@@ -24,6 +23,7 @@ import android.view.*
 import android.view.animation.*
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.work.WorkManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import kotlinx.android.synthetic.main.main_fragment.view.*
@@ -39,18 +39,18 @@ class MainFragment : Fragment() {
     private var viewTime = VIEW_TIME_SEC
     private lateinit var currentContentType: ContentType
 
-    var contentList: MutableList<Content> = ArrayList()
+    private var contentList: MutableList<Content> = ArrayList()
 
-    var handler = Handler()
+    private var handler = Handler()
 
-    lateinit var binding: MainFragmentBinding
+    private lateinit var binding: MainFragmentBinding
+
+    private lateinit var viewModel: MainViewModel
 
     companion object {
         const val MY_PERMISSIONS_REQUEST_READ_CONTACTS = 1
         fun newInstance() = MainFragment()
     }
-
-    private lateinit var viewModel: MainViewModel
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -59,7 +59,7 @@ class MainFragment : Fragment() {
         binding = DataBindingUtil.inflate(inflater, R.layout.main_fragment, container, false)
         registerForContextMenu(binding.root)
         binding.main.setOnClickListener { activity?.openContextMenu(binding.root) }
-        setUpViewSwitcher()
+        setUpAnimationsToViewSwitcher()
         return binding.root
     }
 
@@ -70,12 +70,89 @@ class MainFragment : Fragment() {
         requestPermission()
     }
 
-    private fun observeViewModel() {
-        viewModel.viewTime.observe(this, Observer {
-            it?.let {
-                viewTime = it
+    override fun onStart() {
+        super.onStart()
+        if (ready) {
+            binding.videoView.start()
+            isPlayingVideo = true
+        }
+    }
+
+    override fun onStop() {
+        if (ready) {
+            binding.videoView.stop()
+            isPlayingVideo = false
+        }
+        super.onStop()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>, grantResults: IntArray
+    ) {
+        when (requestCode) {
+            MY_PERMISSIONS_REQUEST_READ_CONTACTS -> {
+                if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    startShow()
+                } else {
+                    Toast.makeText(context, getString(R.string.give_permission_text), Toast.LENGTH_LONG).show()
+                }
+                return
             }
-        })
+        }
+    }
+
+    override fun onCreateContextMenu(menu: ContextMenu?, v: View?, menuInfo: ContextMenu.ContextMenuInfo?) {
+        super.onCreateContextMenu(menu, v, menuInfo)
+        menu?.add(0, MENU_SETTINGS_ID, 0, getString(R.string.settings))
+    }
+
+    override fun onContextItemSelected(item: MenuItem?): Boolean {
+        when (item?.itemId) {
+            MENU_SETTINGS_ID -> invokeSettings()
+        }
+        return super.onContextItemSelected(item)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(EXTRA_COUNTER, counter)
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.let {
+            counter = it.getInt(EXTRA_COUNTER, 0)
+            if (counter > 0)
+                counter--
+        }
+    }
+
+    private fun getRandomPictureFromInternet() {
+        WorkManager.getInstance().getWorkInfoByIdLiveData(viewModel.getPictureFromInternet())
+            .observe(this, Observer { workInfo ->
+                if (workInfo != null && workInfo.state.isFinished) {
+                    setMode(ContentType.PHOTO)
+                    workInfo.outputData.getString(EXTRA_PICTURE_STRING)
+                        ?.let { playContent(Content(it, ContentType.PHOTO)) }
+                }
+            })
+    }
+
+    private fun loadPicture(path: String) {
+        setMode(ContentType.PHOTO)
+        activity?.let {
+            Glide.with(it)
+                .load(path)
+                .apply(RequestOptions.centerCropTransform())
+                .into(binding.viewSwitcher.nextView as ImageView)
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
+        val activeNetworkInfo = connectivityManager!!.activeNetworkInfo
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected
     }
 
     private fun requestPermission() {
@@ -106,17 +183,21 @@ class MainFragment : Fragment() {
         }
     }
 
-    private fun setUpViewSwitcher() {
-        val fadeInSet = AnimationSet(true)
-        val fadeIn = AlphaAnimation(0f, 1f)
-        fadeIn.interpolator = DecelerateInterpolator()
-        fadeIn.duration = ANIMATIONS_DURATION
-        val zoomIn = ScaleAnimation(0f, 1f, 0f, 1f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
-        zoomIn.fillAfter = true
-        zoomIn.duration = ANIMATIONS_DURATION
+    private fun observeViewModel() {
+        viewModel.viewTime.observe(this, Observer {
+            it?.let {
+                viewTime = it
+            }
+        })
+    }
 
-        val fadeOutSet = AnimationSet(true)
 
+    private fun setUpAnimationsToViewSwitcher() {
+        binding.viewSwitcher.inAnimation = createInAnimation()
+        binding.viewSwitcher.outAnimation = createOutAnimation()
+    }
+
+    private fun createOutAnimation(): AnimationSet {
         val fadeOut = AlphaAnimation(1f, 0f)
         fadeOut.interpolator = AccelerateInterpolator()
         fadeOut.duration = ANIMATIONS_DURATION
@@ -125,24 +206,35 @@ class MainFragment : Fragment() {
         zoomOut.fillAfter = true
         zoomOut.duration = ANIMATIONS_DURATION
 
-        fadeInSet.addAnimation(fadeIn)
-        fadeInSet.addAnimation(zoomIn)
-        fadeOutSet.addAnimation(fadeOut)
-        fadeOutSet.addAnimation(zoomOut)
-        fadeInSet.startOffset = ANIMATIONS_DURATION
+        val fadeOutSet = AnimationSet(true)
+        with(fadeOutSet) {
+            addAnimation(fadeOut)
+            addAnimation(zoomOut)
+        }
+        return fadeOutSet
+    }
 
-        binding.viewSwitcher.inAnimation = fadeInSet
-        binding.viewSwitcher.outAnimation = fadeOutSet
+    private fun createInAnimation(): AnimationSet {
+        val fadeIn = AlphaAnimation(0f, 1f)
+        fadeIn.interpolator = DecelerateInterpolator()
+        fadeIn.duration = ANIMATIONS_DURATION
+
+        val zoomIn = ScaleAnimation(0f, 1f, 0f, 1f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
+        zoomIn.fillAfter = true
+        zoomIn.duration = ANIMATIONS_DURATION
+
+        val fadeInSet = AnimationSet(true)
+        with(fadeInSet) {
+            addAnimation(fadeIn)
+            addAnimation(zoomIn)
+            startOffset = ANIMATIONS_DURATION
+        }
+        return fadeInSet
     }
 
     private fun playContent(content: Content) {
         setMode(ContentType.PHOTO)
-        activity?.let {
-            Glide.with(it)
-                .load(content.path)
-                .apply(RequestOptions.centerCropTransform())
-                .into(binding.viewSwitcher.nextView as ImageView)
-        }
+        loadPicture(content.path)
         binding.viewSwitcher.showNext()
         binding.viewSwitcher.inAnimation.setAnimationListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(p0: Animation?) {
@@ -159,22 +251,6 @@ class MainFragment : Fragment() {
         })
     }
 
-    override fun onStop() {
-        if (ready) {
-            binding.videoView.stop()
-            isPlayingVideo = false
-        }
-        super.onStop()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        if (ready) {
-            binding.videoView.start()
-            isPlayingVideo = true
-        }
-    }
-
     private fun startShow() {
         viewModel.contentList.observe(this, Observer {
             contentList.addAll(it as MutableList<Content>)
@@ -188,8 +264,12 @@ class MainFragment : Fragment() {
                 activity?.let {
                     if (counter < contentList.size - 1 && !shouldStop) {
                         isLoopRunning = true
-                        playContent(contentList[counter])
-                        counter++
+                        if (isNetworkAvailable()) {
+                            getRandomPictureFromInternet()
+                        } else {
+                            playContent(contentList[counter])
+                            counter++
+                        }
                         handler.postDelayed(this, viewTime * 1000L)
                     } else {
                         isLoopRunning = false
@@ -197,22 +277,6 @@ class MainFragment : Fragment() {
                 }
             }
         })
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>, grantResults: IntArray
-    ) {
-        when (requestCode) {
-            MY_PERMISSIONS_REQUEST_READ_CONTACTS -> {
-                if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
-                    startShow()
-                } else {
-                    Toast.makeText(context, getString(R.string.give_permission_text), Toast.LENGTH_LONG).show()
-                }
-                return
-            }
-        }
     }
 
     private fun setMode(type: ContentType) {
@@ -230,18 +294,6 @@ class MainFragment : Fragment() {
         }
     }
 
-    override fun onCreateContextMenu(menu: ContextMenu?, v: View?, menuInfo: ContextMenu.ContextMenuInfo?) {
-        super.onCreateContextMenu(menu, v, menuInfo)
-        menu?.add(0, MENU_SETTINGS_ID, 0, getString(R.string.settings))
-    }
-
-    override fun onContextItemSelected(item: MenuItem?): Boolean {
-        when (item?.itemId) {
-            MENU_SETTINGS_ID -> invokeSettings()
-        }
-        return super.onContextItemSelected(item)
-    }
-
     private fun invokeSettings() {
         val dialog = SettingDialog.newInstance(
             text = "",
@@ -253,19 +305,5 @@ class MainFragment : Fragment() {
             viewModel.saveSettingsToShPref(Integer.parseInt(text))
         }
         dialog.show(fragmentManager, "TAG")
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putInt(EXTRA_COUNTER, counter)
-    }
-
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
-        savedInstanceState?.let {
-            counter = it.getInt(EXTRA_COUNTER, 0)
-            if (counter > 0)
-                counter--
-        }
     }
 }
